@@ -39,6 +39,9 @@ class ProxyInboundWorkerConnection : public ProxyInboundConnection {
   auto worker_connection_info() const {
     return worker_connection_info_;
   }
+  auto proto_version() const {
+    return proto_version_;
+  }
 
   void receive_handshake_query(td::BufferSlice message, td::Promise<td::BufferSlice> promise);
   void receive_connect_to_proxy_query(td::BufferSlice message, td::Promise<td::BufferSlice> promise);
@@ -51,6 +54,7 @@ class ProxyInboundWorkerConnection : public ProxyInboundConnection {
   std::string worker_owner_address_str_;
   std::shared_ptr<ProxyWorkerInfo> worker_info_{nullptr};
   std::shared_ptr<ProxyWorkerConnectionInfo> worker_connection_info_{nullptr};
+  td::int32 proto_version_;
 };
 
 }  // namespace cocoon

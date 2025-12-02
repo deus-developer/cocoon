@@ -32,6 +32,12 @@ void ProxyInboundWorkerConnection::receive_handshake_query(td::BufferSlice messa
 
 void ProxyInboundWorkerConnection::receive_connect_to_proxy_query(td::BufferSlice query,
                                                                   td::Promise<td::BufferSlice> promise) {
+  if (runner()->check_worker_hashes()) {
+    if (!runner()->sc()->runner_config()->root_contract_config->has_worker_hash(remote_app_hash())) {
+      return promise.set_error(td::Status::Error(
+          ton::ErrorCode::protoviolation, PSTRING() << "invalid worker image hash " << remote_app_hash().to_hex()));
+    }
+  }
   TRY_RESULT_PROMISE(promise, obj, fetch_tl_object<cocoon_api::worker_connectToProxy>(std::move(query), true));
   if (!(obj->params_->flags_ & 1)) {
     return promise.set_error(td::Status::Error(ton::ErrorCode::error, "too old worker"));
@@ -52,16 +58,22 @@ void ProxyInboundWorkerConnection::receive_connect_to_proxy_query(td::BufferSlic
     return promise.set_error(td::Status::Error(ton::ErrorCode::protoviolation, "invalid proxy_cnt value"));
   }
   if (runner()->check_worker_hashes()) {
-    if (!runner()->sc()->runner_config()->root_contract_config->has_worker_hash(remote_app_hash())) {
-      return promise.set_error(td::Status::Error(
-          ton::ErrorCode::protoviolation, PSTRING() << "invalid worker image hash " << remote_app_hash().to_hex()));
-    }
     if (!runner()->sc()->runner_config()->root_contract_config->has_model_hash(
             td::sha256_bits256(obj->params_->model_))) {
       return promise.set_error(td::Status::Error(ton::ErrorCode::protoviolation,
                                                  PSTRING() << "invalid worker model '" << obj->params_->model_ << "'"));
     }
   }
+  auto remote_min_proto_version = (obj->params_->flags_ & 2) ? obj->params_->min_proto_version_ : 0;
+  auto remote_max_proto_version = (obj->params_->flags_ & 2) ? obj->params_->max_proto_version_ : 0;
+
+  if (remote_max_proto_version < runner()->min_proto_version() ||
+      runner()->max_proto_version() < remote_min_proto_version) {
+    return promise.set_error(
+        td::Status::Error(ton::ErrorCode::protoviolation, "cannot choose common protocol version"));
+  }
+  proto_version_ = std::min(remote_max_proto_version, runner()->max_proto_version());
+
   TRY_RESULT_PROMISE(promise, worker_owner_address, block::StdAddress::parse(obj->params_->worker_owner_address_));
   worker_owner_address.bounceable = false;
   worker_owner_address.testnet = runner()->is_testnet();
@@ -76,8 +88,8 @@ void ProxyInboundWorkerConnection::receive_connect_to_proxy_query(td::BufferSlic
 
   state_ = State::Compare;
   auto params = ton::create_tl_object<cocoon_api::proxy_params>(
-      1, runner()->public_key(), runner()->owner_address().rserialize(true),
-      runner()->cur_sc_address().rserialize(true), runner()->is_test());
+      1 | (proto_version_ > 0 ? 2 : 0), runner()->public_key(), runner()->owner_address().rserialize(true),
+      runner()->cur_sc_address().rserialize(true), runner()->is_test(), proto_version_);
   promise.set_value(cocoon::create_serialize_tl_object<cocoon_api::worker_connectedToProxy>(
       std::move(params), worker_info_->worker_sc_address().rserialize(true)));
 }

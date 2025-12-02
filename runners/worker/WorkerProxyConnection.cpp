@@ -31,8 +31,9 @@ void WorkerProxyConnection::send_handshake() {
     }
   }
   auto params = ton::create_tl_object<cocoon_api::worker_params>(
-      1, runner()->owner_address().rserialize(true), runner()->model_name(), runner()->coefficient(),
-      runner()->is_test(), runner()->proxy_targets_number(), runner()->max_active_requests());
+      3, runner()->owner_address().rserialize(true), runner()->model_name(), runner()->coefficient(),
+      runner()->is_test(), runner()->proxy_targets_number(), runner()->max_active_requests(),
+      runner()->min_proto_version(), runner()->max_proto_version());
   auto req = cocoon::create_serialize_tl_object<cocoon_api::worker_connectToProxy>(std::move(params));
   runner()->send_handshake_query_to_connection(
       connection_id(), "send_proxy_handshake", std::move(req), td::Timestamp::in(30.0),
@@ -65,7 +66,7 @@ void WorkerProxyConnection::received_handshake_answer(td::BufferSlice answer) {
   td::Bits256 proxy_public_key;
   auto S = [&]() -> td::Status {
     TRY_RESULT(r, fetch_tl_object<cocoon_api::worker_connectedToProxy>(answer, true));
-    if (!(r->params_->flags_ & 1)) {
+    if (!(r->params_->flags_ & 3)) {
       return td::Status::Error(ton::ErrorCode::error, "proxy is too old");
     }
     if (r->params_->is_test_ != runner()->is_test()) {
@@ -75,6 +76,7 @@ void WorkerProxyConnection::received_handshake_answer(td::BufferSlice answer) {
     TRY_RESULT_ASSIGN(proxy_sc_address, block::StdAddress::parse(r->params_->proxy_sc_address_));
     TRY_RESULT_ASSIGN(worker_sc_address, block::StdAddress::parse(r->worker_sc_address_));
     proxy_public_key = r->params_->proxy_public_key_;
+    proto_version_ = r->params_->proto_version_;
     return td::Status::OK();
   }();
   if (S.is_error()) {

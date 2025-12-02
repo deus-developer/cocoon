@@ -25,8 +25,13 @@ class WorkerProxyConnection : public ProxyOutboundConnection {
     return proxy_sc_address_str_;
   }
 
+  auto proto_version() const {
+    return proto_version_;
+  }
+
  private:
   std::string proxy_sc_address_str_;
+  td::int32 proto_version_;
 };
 
 }  // namespace cocoon

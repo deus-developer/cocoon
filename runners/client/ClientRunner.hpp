@@ -25,6 +25,12 @@ class ClientRunner : public BaseRunner {
   static constexpr td::int64 min_tokens_on_contract() {
     return 100000000;
   }
+  static constexpr td::int32 min_proto_version() {
+    return 1;
+  }
+  static constexpr td::int32 max_proto_version() {
+    return 1;
+  }
 
   /* SIMPLE GETTERS */
   const auto &owner_address() const {

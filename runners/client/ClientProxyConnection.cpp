@@ -25,8 +25,9 @@ void ClientProxyConnection::send_handshake() {
       return;
     }
   }
-  auto params = ton::create_tl_object<cocoon_api::client_params>(1, runner()->cocoon_wallet_address().rserialize(true),
-                                                                 runner()->is_test());
+  auto params = ton::create_tl_object<cocoon_api::client_params>(3, runner()->cocoon_wallet_address().rserialize(true),
+                                                                 runner()->is_test(), runner()->min_proto_version(),
+                                                                 runner()->max_proto_version());
   auto req = cocoon::create_serialize_tl_object<cocoon_api::client_connectToProxy>(
       std::move(params), runner()->runner_config()->root_contract_config->version());
   runner()->send_handshake_query_to_connection(
@@ -52,7 +53,7 @@ void ClientProxyConnection::received_handshake_answer(td::BufferSlice answer) {
   ton::tl_object_ptr<cocoon_api::client_ProxyConnectionAuth> auth;
   auto S = [&]() -> td::Status {
     TRY_RESULT(obj, fetch_tl_object<cocoon_api::client_connectedToProxy>(answer, true));
-    if (!(obj->params_->flags_ & 1)) {
+    if (!(obj->params_->flags_ & 3)) {
       return td::Status::Error(ton::ErrorCode::error, "too old proxy");
     }
     TRY_RESULT(proxy_owner_address, block::StdAddress::parse(obj->params_->proxy_owner_address_));
@@ -61,6 +62,7 @@ void ClientProxyConnection::received_handshake_answer(td::BufferSlice answer) {
     if (obj->params_->is_test_ != runner()->is_test()) {
       return td::Status::Error(ton::ErrorCode::protoviolation, "test mode mismatch");
     }
+    proto_version_ = obj->params_->proto_version_;
     TRY_RESULT(proxy, runner()->register_proxy(connection_id(), obj->params_->proxy_public_key_, proxy_owner_address,
                                                proxy_sc_address, client_sc_address, std::move(obj->signed_payment_)));
     proxy_ = proxy;

@@ -31,6 +31,12 @@ class WorkerRunner : public BaseRunner {
   static constexpr td::int64 min_worker_payout_sum_on_idle() {
     return to_nano(0.2);
   }
+  static constexpr td::int32 min_proto_version() {
+    return 1;
+  }
+  static constexpr td::int32 max_proto_version() {
+    return 1;
+  }
 
   /* SIMPLE GETTERS */
   const auto &owner_address() const {

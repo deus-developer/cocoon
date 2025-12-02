@@ -47,6 +47,16 @@ void ProxyInboundClientConnection::receive_connect_to_proxy_query(td::BufferSlic
   if ((td::uint32)obj->min_config_version_ > runner()->active_config_version()) {
     return promise.set_error(td::Status::Error(ton::ErrorCode::error, "active config version is too low"));
   }
+  auto remote_min_proto_version = (obj->params_->flags_ & 2) ? obj->params_->min_proto_version_ : 0;
+  auto remote_max_proto_version = (obj->params_->flags_ & 2) ? obj->params_->max_proto_version_ : 0;
+
+  if (remote_max_proto_version < runner()->min_proto_version() ||
+      runner()->max_proto_version() < remote_min_proto_version) {
+    return promise.set_error(
+        td::Status::Error(ton::ErrorCode::protoviolation, "cannot choose common protocol version"));
+  }
+  proto_version_ = std::min(remote_max_proto_version, runner()->max_proto_version());
+
   client_owner_address.bounceable = false;
   client_owner_address.testnet = runner()->is_testnet();
   client_owner_address_str_ = client_owner_address.rserialize(true);
@@ -84,8 +94,8 @@ void ProxyInboundClientConnection::send_connected(ton::tl_object_ptr<cocoon_api:
                                                   td::Promise<td::BufferSlice> promise) {
   state_ = State::Auth;
   auto params = ton::create_tl_object<cocoon_api::proxy_params>(
-      1, runner()->public_key(), runner()->owner_address().rserialize(true),
-      runner()->cur_sc_address().rserialize(true), runner()->is_test());
+      1 | (proto_version_ > 0 ? 2 : 0), runner()->public_key(), runner()->owner_address().rserialize(true),
+      runner()->cur_sc_address().rserialize(true), runner()->is_test(), proto_version_);
   promise.set_value(cocoon::create_serialize_tl_object<cocoon_api::client_connectedToProxy>(
       std::move(params), client_sc_address().rserialize(true), std::move(auth),
       client_info_ ? client_info_->signed_payment() : ton::create_tl_object<cocoon_api::proxy_signedPaymentEmpty>()));

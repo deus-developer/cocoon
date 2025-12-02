@@ -41,6 +41,12 @@ class ProxyRunner : public BaseRunner {
   static constexpr td::int64 min_withdraw_amount() {
     return to_nano(10);
   }
+  static constexpr td::int32 min_proto_version() {
+    return 0;
+  }
+  static constexpr td::int32 max_proto_version() {
+    return 1;
+  }
 
   /* SIMPLE GETTERS */
   const auto &owner_address() const {

@@ -29,8 +29,13 @@ class ClientProxyConnection : public ProxyOutboundConnection {
     return proxy_;
   }
 
+  auto proto_version() const {
+    return proto_version_;
+  }
+
  private:
   std::shared_ptr<ClientProxyInfo> proxy_;
+  td::int32 proto_version_;
 };
 
 }  // namespace cocoon

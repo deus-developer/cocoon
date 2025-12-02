@@ -153,6 +153,8 @@ worker.params#869c73ed flags:#
   is_test:flags.0?Bool
   proxy_cnt:flags.0?int
   max_active_requests:flags.0?int
+  min_proto_version:flags.1?int
+  max_proto_version:flags.1?int
   = worker.Params;
 
 proxy.params#d5c5609f flags:# 
@@ -160,11 +162,14 @@ proxy.params#d5c5609f flags:#
   proxy_owner_address:string 
   proxy_sc_address:string
   is_test:flags.0?Bool
+  proto_version:flags.1?int
   = proxy.Params;
 
 client.params#40fdca64 flags:# 
   client_owner_address:string 
   is_test:flags.0?Bool 
+  min_proto_version:flags.1?int
+  max_proto_version:flags.1?int
   = client.Params;
 
 ---functions---
