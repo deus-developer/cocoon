@@ -22,6 +22,7 @@ node_wallet_key = [PRIVATE]
 hf_token = hf_yourtoken
 
 # Required: Path to TON config with stable liteservers
+# You may use the [configuration we provide](https://cocoon.org/resources/mainnet.cocoon.global.config.json) or supply your own.
 ton_config = actual_path
 
 # Required: COCOON root contract address on TON

@@ -90,6 +90,8 @@ All options are set in `worker.conf` (INI format). See `worker.conf.example` for
 
 The `ton_config` option must point to a JSON file containing TON network configuration with reliable liteserver endpoints.
 
+You may use the [configuration we provide](https://cocoon.org/resources/mainnet.cocoon.global.config.json) or supply your own. 
+
 Example:
 ```bash
 # Use included mainnet config
