@@ -32,6 +32,8 @@ if [[ "$1" == "final" ]]; then
   if grep -qP '\bautologin\b' <<<"$PROFILES" ; then
     sed -i "s/^#autologin //" "$BUILDROOT/etc/iptables/rules.v4"
     sed -i "s/^#autologin //" "$BUILDROOT/etc/iptables/rules.v6"
+  else
+    mkosi-chroot systemctl mask rescue.service emergency.service
   fi
 
   tar -xzf "$SRCDIR/pkg-cache/nvtrust-2025.10.09.001.tar.gz" -C "$BUILDROOT/opt"

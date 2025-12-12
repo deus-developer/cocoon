@@ -18,7 +18,7 @@ cmdline="roothash=$(cat $OUTPUTDIR/image.hash) systemd.verity_root_options=panic
 if grep -qP '\bautologin\b' <<<"$PROFILES"; then
   cmdline="$cmdline systemd.debug_shell=1"
 else
-  cmdline="$cmdline systemd.getty_auto=no"
+  cmdline="$cmdline systemd.getty_auto=no rd.shell=0"
 fi
 
 echo "$cmdline" > $OUTPUTDIR/image.cmdline
