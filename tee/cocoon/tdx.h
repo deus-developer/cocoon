@@ -30,7 +30,7 @@ namespace tdx {
  * We use 1.3.6.1.4.1.12345.x for our custom extensions
  */
 namespace OID {
-constexpr td::CSlice TDX_QUOTA = "1.3.6.1.4.1.12345.1";
+constexpr td::CSlice TDX_QUOTE = "1.3.6.1.4.1.12345.1";
 constexpr td::CSlice TDX_USER_CLAIMS = "1.3.6.1.4.1.12345.2";
 }  // namespace OID
 

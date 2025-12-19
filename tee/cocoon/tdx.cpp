@@ -1302,7 +1302,7 @@ td::Result<std::string> generate_tdx_self_signed_cert(const tde2e_core::PrivateK
   }
   TRY_RESULT(quota, tdx.make_quote(user_claims.to_hash()));
   auto serialized_user_claims = user_claims.serialize();
-  config.extra_extensions.emplace_back(OID::TDX_QUOTA.c_str(), quota.raw_quote);
+  config.extra_extensions.emplace_back(OID::TDX_QUOTE.c_str(), quota.raw_quote);
   config.extra_extensions.emplace_back(OID::TDX_USER_CLAIMS.c_str(), serialized_user_claims);
   return generate_self_signed_cert(private_key, config);
 }
@@ -1322,7 +1322,7 @@ td::Result<std::optional<std::string>> get_extension(X509 *cert, td::CSlice oid)
   }
   const unsigned char *data = ASN1_STRING_get0_data(ext_data);
   int len = ASN1_STRING_length(ext_data);
-  if (oid == OID::TDX_QUOTA && len > td::narrow_cast<int>(MAX_TDX_QUOTE_EXTENSION_SIZE)) {
+  if (oid == OID::TDX_QUOTE && len > td::narrow_cast<int>(MAX_TDX_QUOTE_EXTENSION_SIZE)) {
     return td::Status::Error(PSLICE() << "Quote extension too large: " << len << ", max "
                                       << MAX_TDX_QUOTE_EXTENSION_SIZE);
   }
@@ -1357,8 +1357,8 @@ void append_cert_info(X509 *cert, td::StringBuilder &sb) {
     char oid_buf[MAX_OID_BUFFER_SIZE];
     int oid_len = OBJ_obj2txt(oid_buf, sizeof(oid_buf), obj, 1);
     auto oid = td::Slice(oid_buf, oid_len);
-    if (oid == OID::TDX_QUOTA) {
-      sb << "  Extension " << i << ": OID = TDX_QUOTA";
+    if (oid == OID::TDX_QUOTE) {
+      sb << "  Extension " << i << ": OID = TDX_QUOTE";
     } else if (oid == OID::TDX_USER_CLAIMS) {
       sb << "  Extension " << i << ": OID = TDX_USER_CLAIMS";
     } else {
@@ -1480,12 +1480,12 @@ struct Verifier {
       char oid_raw[128];
       OBJ_obj2txt(oid_raw, sizeof(oid_raw), obj, 1);
       auto oid = td::CSlice(oid_raw, oid_raw + strlen(oid_raw));
-      if (oid != OID::TDX_QUOTA && oid != OID::TDX_USER_CLAIMS) {
+      if (oid != OID::TDX_QUOTE && oid != OID::TDX_USER_CLAIMS) {
         return td::Status::Error(PSLICE() << "Unkown critical oid=" << oid);
       }
     }
 
-    TRY_RESULT(o_raw_quota, get_extension(cert, OID::TDX_QUOTA));
+    TRY_RESULT(o_raw_quota, get_extension(cert, OID::TDX_QUOTE));
     TRY_RESULT(o_raw_user_claims, get_extension(cert, OID::TDX_USER_CLAIMS));  // TODO: maybe use them?..
 
     OPENSSL_MAKE_PTR(pkey, X509_get_pubkey(cert), EVP_PKEY_free, "No public key found in the certificate");
