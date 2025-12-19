@@ -162,6 +162,12 @@ elseif (CLANG OR GCC)
     #use "-Wl,-exported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/export_list" for exported symbols
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fvisibility=hidden -Wl,-dead_strip,-x,-S")
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -fvisibility=hidden -Wl,-dead_strip,-x,-S")
+    # Generate dSYM bundles for proper stack traces with libbacktrace (for Ninja/Make generators)
+    if(NOT DSYMUTIL_LINK_CONFIGURED AND NOT CMAKE_GENERATOR MATCHES "Xcode" AND CMAKE_BUILD_TYPE MATCHES "Debug|RelWithDebInfo")
+      set(DSYMUTIL_LINK_CONFIGURED TRUE CACHE INTERNAL "dSYM generation configured in linker")
+      set(CMAKE_C_LINK_EXECUTABLE "${CMAKE_C_LINK_EXECUTABLE} && dsymutil <TARGET>")
+      set(CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} && dsymutil <TARGET>")
+    endif()
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections")
     if (NOT USE_EMSCRIPTEN)
@@ -284,11 +290,6 @@ add_subdirectory(tl)
 add_subdirectory(cocoon-tl-utils)
 #add_subdirectory(http)
 #add_subdirectory(crypto)
-
-# Configure libbacktrace to use submodule
-# Must use CACHE INTERNAL to be visible in isolated subdirectories (ton/tdutils)
-set(LIBBACKTRACE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third-party/libbacktrace" CACHE INTERNAL "Path to libbacktrace source")
-message(STATUS "Using libbacktrace submodule at: ${LIBBACKTRACE_SOURCE_DIR}")
 
 function(add_isolated_subdir dir)
   set(CMAKE_CXX_FLAGS "")  # scoped only to this function
