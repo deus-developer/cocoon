@@ -15,7 +15,7 @@
 
 namespace cocoon {
 
-/* 
+/*
  *
  * REQUEST HANDLING
  *
@@ -179,7 +179,7 @@ void ClientRunner::load_config(td::Promise<td::Unit> promise) {
     if (conf.connect_to_proxy_via_.size() > 0) {
       TRY_STATUS(connection_to_proxy_via(conf.connect_to_proxy_via_));
     }
-    if (conf.check_proxy_hashes_ || !conf.is_test_) {
+    if (conf.check_proxy_hashes_) {
       set_fake_tdx(false);
       enable_check_proxy_hash();
     } else {
@@ -267,9 +267,9 @@ void ClientRunner::custom_initialize(td::Promise<td::Unit> promise) {
               promise) { promise.set_error(td::Status::Error(ton::ErrorCode::error, "not found")); });
 }
 
-/* 
+/*
  *
- * CRON 
+ * CRON
  *
  */
 
@@ -311,7 +311,7 @@ void ClientRunner::alarm() {
   alarm_timestamp().relax(next_update_balances_at_);
 }
 
-/* 
+/*
  *
  * INBOUND MESSAGE HANDLER
  *
@@ -466,9 +466,9 @@ td::Status ClientRunner::cmd_withdraw(const std::string &proxy_sc_address_str) {
   return td::Status::OK();
 }
 
-/* 
+/*
  *
- * PROXY DB AND AUTH 
+ * PROXY DB AND AUTH
  *
  */
 

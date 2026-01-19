@@ -1,13 +1,58 @@
-# COCOON Technical Documentation
+# COCOON Documentation
 
-This documentation provides a deep technical description of the COCOON decentralized AI inference platform.
+COCOON is a decentralized AI inference platform on the TON blockchain.
 
-## Documentation Structure
+## Quick Start
 
-1. **[Architecture](architecture.md)** - System overview, components, and request workflow
-2. **[TDX and Images](tdx-and-images.md)** - Intel TDX fundamentals, boot sequence, and image generation
-3. **[RA-TLS](ra-tls.md)** - Remote attestation over TLS, router, and certificate generation
-4. **[Seal Keys](seal-keys.md)** - Persistent key derivation via SGX/TDX interaction
-5. **[Smart Contracts](smart-contracts.md)** - Payment system and TON blockchain integration
-6. **[GPU](gpu.md)** - GPU passthrough and confidential computing validation
-7. **[Deployment](deployment.md)** - Deployment, testing, and debugging
+1. [Docker Deployment](docker.md) — Run a client in 5 minutes
+2. [API Reference](api-reference.md) — Make inference requests
+
+## Understanding the System
+
+3. [Client Setup](client-setup.md) — Wallet system and configuration
+4. [Components](components.md) — How client, proxy, and worker interact
+
+## Overview
+
+```
+Your App
+    │
+    │ HTTP (OpenAI-compatible)
+    ▼
+COCOON Client (Docker)
+    │
+    │ RA-TLS (encrypted + attested)
+    ▼
+Proxy (TDX VM)
+    │
+    │ RA-TLS
+    ▼
+Worker (TDX VM + GPU)
+    │
+    ▼
+vLLM → Response
+```
+
+**Key features:**
+
+- **Privacy**: Prompts and responses encrypted end-to-end
+- **Verification**: TDX attestation proves genuine execution
+- **Payments**: Automatic micropayments via TON blockchain
+- **OpenAI-compatible**: Works with existing SDKs and tools
+
+## Example
+
+```bash
+curl -X POST http://localhost:10000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "Qwen/Qwen3-0.6B",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+## Links
+
+- [GitHub Repository](https://github.com/TelegramMessenger/cocoon)
+- [Website](https://cocoon.org)
+- [TON Documentation](https://docs.ton.org/)

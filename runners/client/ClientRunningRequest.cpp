@@ -287,8 +287,10 @@ void ClientRunningRequest::finish_request(bool is_success,
     stats()->requests_failed++;
   }
   stats()->total_requests_time += run_time();
-  stats()->total_worker_requests_time += (final_info->worker_end_time_ - final_info->worker_start_time_);
-  stats()->total_proxy_requests_time += (final_info->proxy_end_time_ - final_info->proxy_start_time_);
+  if (final_info) {
+    stats()->total_worker_requests_time += (final_info->worker_end_time_ - final_info->worker_start_time_);
+    stats()->total_proxy_requests_time += (final_info->proxy_end_time_ - final_info->proxy_start_time_);
+  }
 
   CHECK(!promise_);
   out_payload_->complete_parse();

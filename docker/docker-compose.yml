@@ -1,0 +1,38 @@
+services:
+  cocoon:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: cocoon:latest
+    container_name: cocoon
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "10000:10000"
+    environment:
+      - COCOON_OWNER_ADDRESS=${COCOON_OWNER_ADDRESS:?Set COCOON_OWNER_ADDRESS in .env}
+      - COCOON_VERBOSITY=${COCOON_VERBOSITY:-3}
+      - COCOON_PROXY_CONNECTIONS=${COCOON_PROXY_CONNECTIONS:-1}
+      - COCOON_HTTP_ACCESS_HASH=${COCOON_HTTP_ACCESS_HASH:-}
+    secrets:
+      - cocoon_node_wallet_key
+    volumes:
+      - cocoon-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:10000/jsonstats"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "3"
+
+secrets:
+  cocoon_node_wallet_key:
+    environment: COCOON_NODE_WALLET_KEY
+
+volumes:
+  cocoon-data:
