@@ -268,6 +268,7 @@ void ClientRunningRequest::return_error_str(td::int32 ton_error_code, std::strin
 
   auto data = sb.as_cslice();
   auto response = ton::http::HttpResponse::create("HTTP/1.0", error_code, error_string, false, false).move_as_ok();
+  response->add_header(ton::http::HttpHeader{"Content-Type", "application/json"});
   response->add_header(ton::http::HttpHeader{"Content-Length", PSTRING() << data.size()});
   response->complete_parse_header();
   out_payload_ = response->create_empty_payload().move_as_ok();

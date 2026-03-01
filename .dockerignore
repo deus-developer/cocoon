@@ -1,0 +1,34 @@
+# Build directories
+build/
+cmake-build*/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git (keep .gitmodules for submodule info)
+.git/
+**/.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large directories not needed for build
+reprodebian/
+mt-tools/
+benchmark/
+images/
+spec/
+
+# Claude
+.claude/
+
+# Python
+*.pyc
+__pycache__/
+.python-version
