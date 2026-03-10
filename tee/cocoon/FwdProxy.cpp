@@ -313,6 +313,6 @@ void FwdProxy::start_up() {
     }
   };
   listener_ = td::actor::create_actor<td::TcpInfiniteListener>("Listener", config_->port_,
-                                                               std::make_unique<Callback>(config_), "127.0.0.1");
+                                                               std::make_unique<Callback>(config_), config_->listen_address_);
 }
 }  // namespace cocoon

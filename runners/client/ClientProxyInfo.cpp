@@ -198,13 +198,22 @@ void ClientProxyInfo::store_stats(td::StringBuilder &sb) {
 void ClientProxyInfo::store_stats(SimpleJsonSerializer &jb) {
   jb.add_element("proxy_sc_address", proxy_sc_address().rserialize(true));
   jb.add_element("proxy_public_key", proxy_public_key().to_hex());
-  jb.add_element("sc_address", sc_->address().rserialize(true));
+  jb.add_element("client_sc_address", client_sc_address().rserialize(true));
   jb.add_element("state", sc_->state());
+  jb.add_element("is_inited", exp_sc_is_inited());
+  jb.add_element("is_closing", exp_sc_is_closing());
+  jb.add_element("is_closed", exp_sc_is_closed());
+  jb.add_element("ton_balance", exp_sc_ton_balance_);
+  jb.add_element("stake", exp_sc_stake_);
+  jb.add_element("available_tokens", exp_available_tokens());
+  jb.add_element("need_top_up", need_ton_top_up());
   jb.add_element("tokens_used_proxy_committed_to_blockchain", tokens_used_proxy_committed_to_blockchain_);
   jb.add_element("tokens_used_proxy_committed_to_db", tokens_used_proxy_committed_to_db_);
   jb.add_element("tokens_used_proxy_max", tokens_used_proxy_max_);
   jb.add_element("tokens_charged", sc_tokens_used_);
   jb.add_element("tokens_payed", sc_tokens_payed_);
+  jb.add_element("sc_request_running", sc_request_running_);
+  jb.add_element("requests_running", requests_running());
 }
 
 td::Ref<vm::Cell> ClientProxyInfo::run_charge() {

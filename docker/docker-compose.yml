@@ -1,23 +1,69 @@
 services:
-  cocoon:
+  router:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: cocoon:latest
-    container_name: cocoon
+      target: router
+    image: cocoon-router:latest
+    container_name: cocoon-router
+    restart: unless-stopped
+    stop_grace_period: 10s
+    environment:
+      - COCOON_ROUTER_POLICY
+      - COCOON_ROUTER_PORT
+      - COCOON_VERBOSITY
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8116'"]
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    networks:
+      cocoon-net:
+        ipv4_address: 10.100.0.10
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "3"
+
+  client:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: client
+    image: cocoon-client:latest
+    container_name: cocoon-client
     restart: unless-stopped
     stop_grace_period: 30s
+    depends_on:
+      router:
+        condition: service_healthy
     ports:
       - "10000:10000"
     environment:
-      - COCOON_OWNER_ADDRESS=${COCOON_OWNER_ADDRESS:?Set COCOON_OWNER_ADDRESS in .env}
-      - COCOON_VERBOSITY=${COCOON_VERBOSITY:-3}
-      - COCOON_PROXY_CONNECTIONS=${COCOON_PROXY_CONNECTIONS:-1}
-      - COCOON_HTTP_ACCESS_HASH=${COCOON_HTTP_ACCESS_HASH:-}
+      - COCOON_OWNER_ADDRESS
+      - COCOON_NODE_WALLET_KEY
+      - COCOON_VERBOSITY
+      - COCOON_PROXY_CONNECTIONS
+      - COCOON_HTTP_ACCESS_HASH
+      - COCOON_HTTP_PORT
+      - COCOON_ROUTER_HOST=10.100.0.10
+      - COCOON_ROUTER_PORT
+      - COCOON_CHECK_PROXY_HASHES
+      - COCOON_ROOT_CONTRACT_ADDRESS
+      - COCOON_TON_CONFIG_URL
+      - COCOON_IS_TESTNET
+      - COCOON_MAX_COEFFICIENT
+      - COCOON_MAX_TOKENS
+      - COCOON_SECRET_STRING
     secrets:
       - cocoon_node_wallet_key
     volumes:
       - cocoon-data:/data
+    networks:
+      cocoon-net:
+        ipv4_address: 10.100.0.11
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:10000/jsonstats"]
       interval: 30s
@@ -29,6 +75,13 @@ services:
       options:
         max-size: 50m
         max-file: "3"
+
+networks:
+  cocoon-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.100.0.0/24
 
 secrets:
   cocoon_node_wallet_key:

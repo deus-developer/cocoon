@@ -256,10 +256,18 @@ void ClientRunningRequest::return_error_str(td::int32 ton_error_code, std::strin
   v["error_code"] = ton_error_code;
   v["error"] = error;
   if (final_info && final_info->proxy_debug_.size() > 0) {
-    v["proxy"] = nlohmann::json::parse(final_info->proxy_debug_);
+    try {
+      v["proxy"] = nlohmann::json::parse(final_info->proxy_debug_);
+    } catch (...) {
+      v["proxy"] = final_info->proxy_debug_;
+    }
   }
   if (final_info && final_info->worker_debug_.size() > 0) {
-    v["worker"] = nlohmann::json::parse(final_info->worker_debug_);
+    try {
+      v["worker"] = nlohmann::json::parse(final_info->worker_debug_);
+    } catch (...) {
+      v["worker"] = final_info->worker_debug_;
+    }
   }
   if (enable_debug_) {
     v["client"] = generate_client_debug_inner();

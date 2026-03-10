@@ -1,0 +1,924 @@
+openapi: 3.1.0
+info:
+  title: COCOON Client API
+  version: 1.0.0
+  description: Decentralized AI inference client — OpenAI-compatible proxy over TON blockchain.
+
+servers:
+  - url: http://localhost:10000
+
+security: []
+
+paths:
+  /v1/chat/completions:
+    post:
+      operationId: createChatCompletion
+      summary: Create a chat completion
+      description: >
+        Forwards the request to a worker via proxy. Supports streaming (SSE).
+        COCOON-specific fields (max_coefficient, timeout, enable_debug, request_guid)
+        are extracted by the client and not forwarded to the worker.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+      responses:
+        "200":
+          description: Completion response or SSE stream when stream is true
+          headers:
+            X-Cocoon-Worker-Start:
+              $ref: "#/components/headers/X-Cocoon-Worker-Start"
+            X-Cocoon-Worker-End:
+              $ref: "#/components/headers/X-Cocoon-Worker-End"
+            X-Cocoon-Proxy-Start:
+              $ref: "#/components/headers/X-Cocoon-Proxy-Start"
+            X-Cocoon-Proxy-End:
+              $ref: "#/components/headers/X-Cocoon-Proxy-End"
+            X-Cocoon-Client-Start:
+              $ref: "#/components/headers/X-Cocoon-Client-Start"
+            X-Cocoon-Client-End:
+              $ref: "#/components/headers/X-Cocoon-Client-End"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+            text/event-stream:
+              schema:
+                type: string
+                description: >
+                  SSE stream. Each event line has the format "data: {json}\n".
+                  The final event is "data: [DONE]\n".
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+    options:
+      operationId: chatCompletionsCors
+      summary: CORS preflight
+      responses:
+        "204":
+          $ref: "#/components/responses/Cors"
+
+  /v1/completions:
+    post:
+      operationId: createCompletion
+      summary: Create a text completion (legacy)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompletionRequest"
+      responses:
+        "200":
+          description: Completion response or SSE stream when stream is true
+          headers:
+            X-Cocoon-Worker-Start:
+              $ref: "#/components/headers/X-Cocoon-Worker-Start"
+            X-Cocoon-Worker-End:
+              $ref: "#/components/headers/X-Cocoon-Worker-End"
+            X-Cocoon-Proxy-Start:
+              $ref: "#/components/headers/X-Cocoon-Proxy-Start"
+            X-Cocoon-Proxy-End:
+              $ref: "#/components/headers/X-Cocoon-Proxy-End"
+            X-Cocoon-Client-Start:
+              $ref: "#/components/headers/X-Cocoon-Client-Start"
+            X-Cocoon-Client-End:
+              $ref: "#/components/headers/X-Cocoon-Client-End"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletionResponse"
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+    options:
+      operationId: completionsCors
+      summary: CORS preflight
+      responses:
+        "204":
+          $ref: "#/components/responses/Cors"
+
+  /v1/models:
+    get:
+      operationId: listModels
+      summary: List available models
+      responses:
+        "200":
+          description: Model list
+          headers:
+            Access-Control-Allow-Origin:
+              $ref: "#/components/headers/Access-Control-Allow-Origin"
+            Access-Control-Allow-Methods:
+              $ref: "#/components/headers/Access-Control-Allow-Methods"
+            Access-Control-Allow-Headers:
+              $ref: "#/components/headers/Access-Control-Allow-Headers"
+            Content-Type:
+              schema:
+                type: string
+                enum:
+                  - application/json
+            Content-Length:
+              $ref: "#/components/headers/Content-Length"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelList"
+
+  /stats:
+    get:
+      operationId: getStats
+      summary: HTML status page
+      parameters:
+        - $ref: "#/components/parameters/AccessHash"
+      responses:
+        "200":
+          description: HTML page
+          headers:
+            Access-Control-Allow-Origin:
+              $ref: "#/components/headers/Access-Control-Allow-Origin"
+            Access-Control-Allow-Methods:
+              $ref: "#/components/headers/Access-Control-Allow-Methods"
+            Access-Control-Allow-Headers:
+              $ref: "#/components/headers/Access-Control-Allow-Headers"
+            Content-Type:
+              schema:
+                type: string
+                enum:
+                  - "text/html; charset=utf-8"
+            Content-Length:
+              $ref: "#/components/headers/Content-Length"
+          content:
+            text/html:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /jsonstats:
+    get:
+      operationId: getJsonStats
+      summary: JSON statistics
+      parameters:
+        - $ref: "#/components/parameters/AccessHash"
+      responses:
+        "200":
+          description: Statistics
+          headers:
+            Access-Control-Allow-Origin:
+              $ref: "#/components/headers/Access-Control-Allow-Origin"
+            Access-Control-Allow-Methods:
+              $ref: "#/components/headers/Access-Control-Allow-Methods"
+            Access-Control-Allow-Headers:
+              $ref: "#/components/headers/Access-Control-Allow-Headers"
+            Content-Type:
+              schema:
+                type: string
+                enum:
+                  - application/json
+            Content-Length:
+              $ref: "#/components/headers/Content-Length"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JsonStats"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /perf:
+    get:
+      operationId: getPerf
+      summary: Actor performance metrics
+      responses:
+        "200":
+          description: Plain-text actor stats
+          headers:
+            Access-Control-Allow-Origin:
+              $ref: "#/components/headers/Access-Control-Allow-Origin"
+            Access-Control-Allow-Methods:
+              $ref: "#/components/headers/Access-Control-Allow-Methods"
+            Access-Control-Allow-Headers:
+              $ref: "#/components/headers/Access-Control-Allow-Headers"
+            Content-Type:
+              schema:
+                type: string
+                enum:
+                  - "text/plain; charset=utf-8"
+            Content-Length:
+              $ref: "#/components/headers/Content-Length"
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /request/charge:
+    get:
+      operationId: chargeProxy
+      summary: Charge a proxy
+      parameters:
+        - $ref: "#/components/parameters/AccessHash"
+        - $ref: "#/components/parameters/Proxy"
+      responses:
+        "200":
+          $ref: "#/components/responses/StaticHtml"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+
+  /request/close:
+    get:
+      operationId: closeProxy
+      summary: Close/finalize a proxy
+      parameters:
+        - $ref: "#/components/parameters/AccessHash"
+        - $ref: "#/components/parameters/Proxy"
+      responses:
+        "200":
+          $ref: "#/components/responses/StaticHtml"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+
+  /request/topup:
+    get:
+      operationId: topupProxy
+      summary: Top-up proxy funds
+      parameters:
+        - $ref: "#/components/parameters/AccessHash"
+        - $ref: "#/components/parameters/Proxy"
+      responses:
+        "200":
+          $ref: "#/components/responses/StaticHtml"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+
+  /request/withdraw:
+    get:
+      operationId: withdrawProxy
+      summary: Withdraw proxy funds
+      parameters:
+        - $ref: "#/components/parameters/AccessHash"
+        - $ref: "#/components/parameters/Proxy"
+      responses:
+        "200":
+          $ref: "#/components/responses/StaticHtml"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+
+  /request/debuglogentry:
+    get:
+      operationId: getDebugLogEntry
+      summary: Get debug info for a request
+      parameters:
+        - $ref: "#/components/parameters/AccessHash"
+        - name: request_guid
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Request GUID previously sent with enable_debug set to true
+      responses:
+        "200":
+          description: Debug info
+          headers:
+            Access-Control-Allow-Origin:
+              $ref: "#/components/headers/Access-Control-Allow-Origin"
+            Access-Control-Allow-Methods:
+              $ref: "#/components/headers/Access-Control-Allow-Methods"
+            Access-Control-Allow-Headers:
+              $ref: "#/components/headers/Access-Control-Allow-Headers"
+            Content-Type:
+              schema:
+                type: string
+                enum:
+                  - application/json
+            Content-Length:
+              $ref: "#/components/headers/Content-Length"
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /favicon.ico:
+    get:
+      operationId: getFavicon
+      summary: Favicon (not implemented)
+      responses:
+        "400":
+          description: Always returns error
+          headers:
+            Access-Control-Allow-Origin:
+              $ref: "#/components/headers/Access-Control-Allow-Origin"
+            Access-Control-Allow-Methods:
+              $ref: "#/components/headers/Access-Control-Allow-Methods"
+            Access-Control-Allow-Headers:
+              $ref: "#/components/headers/Access-Control-Allow-Headers"
+            Content-Type:
+              schema:
+                type: string
+            Content-Length:
+              $ref: "#/components/headers/Content-Length"
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  headers:
+    Access-Control-Allow-Origin:
+      schema:
+        type: string
+        enum:
+          - "*"
+    Access-Control-Allow-Methods:
+      schema:
+        type: string
+        enum:
+          - "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers:
+      schema:
+        type: string
+        enum:
+          - "Content-Type, Authorization"
+    Content-Length:
+      schema:
+        type: integer
+    X-Cocoon-Worker-Start:
+      description: Unix timestamp (seconds, microsecond precision) when the worker started processing
+      schema:
+        type: string
+    X-Cocoon-Worker-End:
+      description: Unix timestamp when the worker finished processing
+      schema:
+        type: string
+    X-Cocoon-Proxy-Start:
+      description: Unix timestamp when the proxy received the request from the client
+      schema:
+        type: string
+    X-Cocoon-Proxy-End:
+      description: Unix timestamp when the proxy finished forwarding the response
+      schema:
+        type: string
+    X-Cocoon-Client-Start:
+      description: Unix timestamp when the client received the request
+      schema:
+        type: string
+    X-Cocoon-Client-End:
+      description: Unix timestamp when the client finished processing
+      schema:
+        type: string
+
+  parameters:
+    AccessHash:
+      name: access_hash
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Required when http_access_hash is configured. Protects management endpoints only.
+
+    Proxy:
+      name: proxy
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Proxy smart-contract address (TON)
+
+  responses:
+    Cors:
+      description: CORS preflight
+      headers:
+        Access-Control-Allow-Origin:
+          $ref: "#/components/headers/Access-Control-Allow-Origin"
+        Access-Control-Allow-Methods:
+          $ref: "#/components/headers/Access-Control-Allow-Methods"
+        Access-Control-Allow-Headers:
+          $ref: "#/components/headers/Access-Control-Allow-Headers"
+        Content-Length:
+          schema:
+            type: string
+            enum:
+              - "0"
+
+    StaticHtml:
+      description: Status message
+      headers:
+        Access-Control-Allow-Origin:
+          $ref: "#/components/headers/Access-Control-Allow-Origin"
+        Access-Control-Allow-Methods:
+          $ref: "#/components/headers/Access-Control-Allow-Methods"
+        Access-Control-Allow-Headers:
+          $ref: "#/components/headers/Access-Control-Allow-Headers"
+        Content-Type:
+          schema:
+            type: string
+            enum:
+              - "text/html; charset=utf-8"
+        Content-Length:
+          $ref: "#/components/headers/Content-Length"
+      content:
+        text/html:
+          schema:
+            type: string
+
+    BadRequest:
+      description: Bad request (400)
+      headers:
+        Access-Control-Allow-Origin:
+          $ref: "#/components/headers/Access-Control-Allow-Origin"
+        Access-Control-Allow-Methods:
+          $ref: "#/components/headers/Access-Control-Allow-Methods"
+        Access-Control-Allow-Headers:
+          $ref: "#/components/headers/Access-Control-Allow-Headers"
+        Content-Type:
+          schema:
+            type: string
+        Content-Length:
+          $ref: "#/components/headers/Content-Length"
+      content:
+        text/html:
+          schema:
+            type: string
+            description: "Error text in format: received error: ..."
+
+    InternalError:
+      description: Internal server error (500)
+      headers:
+        Content-Type:
+          schema:
+            type: string
+            enum:
+              - application/json
+        Content-Length:
+          $ref: "#/components/headers/Content-Length"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    BadGateway:
+      description: Proxy connection issue (502)
+      headers:
+        Access-Control-Allow-Origin:
+          $ref: "#/components/headers/Access-Control-Allow-Origin"
+        Access-Control-Allow-Methods:
+          $ref: "#/components/headers/Access-Control-Allow-Methods"
+        Access-Control-Allow-Headers:
+          $ref: "#/components/headers/Access-Control-Allow-Headers"
+        Content-Type:
+          schema:
+            type: string
+        Content-Length:
+          $ref: "#/components/headers/Content-Length"
+      content:
+        text/html:
+          schema:
+            type: string
+
+    GatewayTimeout:
+      description: Request timeout (504)
+      headers:
+        Content-Type:
+          schema:
+            type: string
+            enum:
+              - application/json
+        Content-Length:
+          $ref: "#/components/headers/Content-Length"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ChatCompletionRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum:
+                  - system
+                  - user
+                  - assistant
+                  - tool
+              content:
+                oneOf:
+                  - type: string
+                  - type: array
+        stream:
+          type: boolean
+          default: false
+        stream_options:
+          type: object
+          properties:
+            include_usage:
+              type: boolean
+            include_obfuscation:
+              type: boolean
+        max_completion_tokens:
+          type: integer
+          minimum: 0
+        max_tokens:
+          type: integer
+          minimum: 0
+          description: Alias for max_completion_tokens
+        temperature:
+          type: number
+        top_p:
+          type: number
+        n:
+          type: integer
+          minimum: 1
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+        presence_penalty:
+          type: number
+        stop:
+          description: Stop sequence(s)
+        response_format:
+          type: object
+        reasoning_effort:
+          type: string
+        top_logprobs:
+          type: integer
+          minimum: 0
+        parallel_tool_calls:
+          type: boolean
+        prediction:
+          type: number
+        verbosity:
+          type: string
+        chat_template_kwargs:
+          type: object
+          properties:
+            enable_thinking:
+              type: boolean
+        max_coefficient:
+          type: integer
+          minimum: 0
+          description: "COCOON-specific. Price coefficient limit (not forwarded to worker)."
+        timeout:
+          type: number
+          description: "COCOON-specific. Request timeout in seconds (not forwarded to worker)."
+        enable_debug:
+          type: boolean
+          description: "COCOON-specific. Append debug info to the response (not forwarded to worker)."
+        request_guid:
+          type: string
+          description: "COCOON-specific. External request ID for /request/debuglogentry lookup (not forwarded to worker)."
+
+    CompletionRequest:
+      type: object
+      required:
+        - model
+        - prompt
+      properties:
+        model:
+          type: string
+        prompt:
+          oneOf:
+            - type: string
+            - type: array
+        stream:
+          type: boolean
+          default: false
+        stream_options:
+          type: object
+          properties:
+            include_usage:
+              type: boolean
+            include_obfuscation:
+              type: boolean
+        max_tokens:
+          type: integer
+          minimum: 0
+        temperature:
+          type: number
+        top_p:
+          type: number
+        n:
+          type: integer
+          minimum: 1
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+        presence_penalty:
+          type: number
+        stop:
+          description: Stop sequence(s)
+        best_of:
+          type: integer
+          minimum: 0
+        echo:
+          type: boolean
+        seed:
+          type: integer
+        suffix:
+          type: boolean
+        skip_special_tokens:
+          type: boolean
+          description: Non-standard. Controls special token output.
+        max_coefficient:
+          type: integer
+          minimum: 0
+          description: "COCOON-specific. Price coefficient limit."
+        timeout:
+          type: number
+          description: "COCOON-specific. Request timeout in seconds."
+        enable_debug:
+          type: boolean
+          description: "COCOON-specific. Append debug info to the response."
+        request_guid:
+          type: string
+          description: "COCOON-specific. External request ID for debug lookup."
+
+    ChatCompletionResponse:
+      type: object
+      description: OpenAI-compatible response from the worker with COCOON cost extensions in usage.
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              message:
+                type: object
+                properties:
+                  role:
+                    type: string
+                  content:
+                    type: string
+              finish_reason:
+                type: string
+        usage:
+          $ref: "#/components/schemas/Usage"
+        debug:
+          $ref: "#/components/schemas/DebugInfo"
+
+    CompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              text:
+                type: string
+              finish_reason:
+                type: string
+        usage:
+          $ref: "#/components/schemas/Usage"
+        debug:
+          $ref: "#/components/schemas/DebugInfo"
+
+    Usage:
+      type: object
+      description: Token usage from the worker plus COCOON cost fields injected by the client.
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+        prompt_tokens_details:
+          type: object
+          properties:
+            cached_tokens:
+              type: integer
+        completion_tokens_details:
+          type: object
+          properties:
+            reasoning_tokens:
+              type: integer
+        reasoning_tokens:
+          type: integer
+          description: Alternative location for reasoning tokens (some models)
+        prompt_total_cost:
+          type: integer
+          description: "COCOON-specific. Prompt cost in nanotons."
+        completion_total_cost:
+          type: integer
+          description: "COCOON-specific. Completion cost in nanotons."
+        total_cost:
+          type: integer
+          description: "COCOON-specific. Total cost in nanotons."
+
+    ModelList:
+      type: object
+      properties:
+        object:
+          type: string
+          enum:
+            - list
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Model"
+
+    Model:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Model name
+        object:
+          type: string
+          enum:
+            - model
+        created:
+          type: integer
+        owned_by:
+          type: string
+        workers:
+          type: array
+          description: Present only with proto_version >= 1
+          items:
+            type: object
+            properties:
+              coefficient:
+                type: integer
+                description: "Price coefficient (1000 = 1.0x)"
+              running_requests:
+                type: integer
+              max_running_requests:
+                type: integer
+
+    JsonStats:
+      type: object
+      properties:
+        status:
+          type: object
+          properties:
+            wallet_balance:
+              type: integer
+            ton_last_synced_at:
+              type: integer
+            enabled:
+              type: boolean
+            git_commit:
+              type: string
+            git_commit_data:
+              type: string
+        stats:
+          type: object
+          properties:
+            queries:
+              $ref: "#/components/schemas/StatCounter"
+            success:
+              $ref: "#/components/schemas/StatCounter"
+            failed:
+              $ref: "#/components/schemas/StatCounter"
+            bytes_received:
+              $ref: "#/components/schemas/StatCounter"
+            bytes_sent:
+              $ref: "#/components/schemas/StatCounter"
+            time:
+              $ref: "#/components/schemas/StatCounter"
+        wallet:
+          type: object
+          properties:
+            address:
+              type: string
+            balance:
+              type: integer
+            seqno:
+              type: integer
+            pending_transactions_cnt:
+              type: integer
+            active_transactions_cnt:
+              type: integer
+        localconf:
+          type: object
+          properties:
+            root_address:
+              type: string
+            owner_address:
+              type: string
+            check_proxy_hash:
+              type: boolean
+        proxy_connections:
+          type: array
+          items:
+            type: object
+            properties:
+              address:
+                type: string
+              is_ready:
+                type: boolean
+              proxy_sc_address:
+                type: string
+        proxies:
+          type: array
+          items:
+            type: object
+
+    StatCounter:
+      type: object
+      description: Counter with total and windowed values
+
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - error
+      properties:
+        error_code:
+          type: integer
+          description: Internal TON error code
+        error:
+          type: string
+        proxy:
+          type: object
+          description: Proxy debug info (if available)
+        worker:
+          type: object
+          description: Worker debug info (if available)
+        client:
+          $ref: "#/components/schemas/ClientDebug"
+
+    DebugInfo:
+      type: object
+      description: Present only when enable_debug was set to true in the request
+      properties:
+        proxy:
+          type: object
+        worker:
+          type: object
+        client:
+          $ref: "#/components/schemas/ClientDebug"
+
+    ClientDebug:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - client_stats
+        start_time:
+          type: number
+          format: double
+          description: Unix timestamp
+        answer_receive_start_at:
+          type: number
+          format: double
+        answer_receive_end_at:
+          type: number
+          format: double

@@ -94,6 +94,7 @@ struct CliArgs {
   std::vector<td::UInt384> global_collateral_root_hashes;  // Applied to all policies
   td::int32 global_pow_difficulty = 20;
   td::int32 global_max_pow_difficulty = 28;
+  std::string listen_address = "127.0.0.1";
 };
 
 // Parse policy spec: NAME:TYPE[:image-hash]
@@ -374,6 +375,12 @@ int main(int argc, char **argv) {
                                      return td::Status::OK();
                                    });
 
+  option_parser.add_checked_option('L', "listen", "listen address (default: 127.0.0.1, use 0.0.0.0 for all interfaces)",
+                                   [&](td::Slice addr) {
+                                     args.listen_address = addr.str();
+                                     return td::Status::OK();
+                                   });
+
   option_parser.add_option('g', "generate-config", "generate example configuration file",
                            [&]() { args.generate_config = true; });
 
@@ -512,6 +519,7 @@ int main(int argc, char **argv) {
       if (port_config.type == "socks5") {
         cocoon::FwdProxy::Config fwd_config;
         fwd_config.port_ = port_config.port;
+        fwd_config.listen_address_ = args.listen_address;
         fwd_config.cert_and_key_ = shared_cert;
         fwd_config.default_policy_ = port_config.policy_name;
         fwd_config.policies_ = policies;  // SOCKS5 can use multiple policies via username
@@ -526,6 +534,7 @@ int main(int argc, char **argv) {
       } else if (port_config.type == "forward") {
         cocoon::FwdProxy::Config fwd_config;
         fwd_config.port_ = port_config.port;
+        fwd_config.listen_address_ = args.listen_address;
         fwd_config.cert_and_key_ = shared_cert;
         fwd_config.default_policy_ = port_config.policy_name;
         fwd_config.policies_[port_config.policy_name] = policy_it->second;

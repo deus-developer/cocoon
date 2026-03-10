@@ -157,6 +157,41 @@ Workers need persistent keys that:
 
 **For test mode:** `seal-server` is not required when using `--test --fake-ton` flags.
 
+**Common Issues:**
+
+In case you miss required libraries (such as `libsgx_dcap_ql.so`), refer to the [Intel SGX Installation Guide](https://download.01.org/intel-sgx/latest/dcap-latest/linux/docs/Intel_SGX_SW_Installation_Guide_for_Linux.pdf) to get them for your distro.
+
+## Troubleshooting
+
+### QEMU not found
+
+If you get `FileNotFoundError` when running `cocoon-launch`, make sure QEMU is installed and in your PATH:
+
+```bash
+which qemu-system-x86_64
+
+# Debian/Ubuntu
+sudo apt install qemu-system-x86
+
+# Fedora
+sudo dnf install qemu-system-x86-core
+```
+
+### Host OS compatibility
+
+The version requirements (kernel 6.16+, QEMU 10.1+) are **hard requirements** for full TDX support. Ubuntu 24.04 ships with older kernel and QEMU versions. Recommended options:
+
+- **Fedora 43+** — ships with the required kernel and QEMU versions out of the box
+- **Ubuntu** — requires manual kernel and QEMU upgrades (Canonical's TDX guide alone is not sufficient)
+
+### TON liteserver sync stuck
+
+If the client gets stuck at ~99% sync, this is typically caused by unreliable public liteservers. Try:
+
+1. Use the [COCOON-provided TON config](https://cocoon.org/resources/mainnet.cocoon.global.config.json) which includes tested liteserver endpoints
+2. Run your own liteserver for maximum reliability
+3. Ensure your network allows outbound connections on the liteserver ports
+
 ## Monitoring
 
 ### HTTP Stats

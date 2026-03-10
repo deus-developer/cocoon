@@ -89,11 +89,10 @@ void ClientRunner::run_get_models_request(
             jb.stop_object();
           }
           jb.stop_array();
-          jb.add_element("object", "list");
           jb.stop_object();
 
           auto res = jb.as_cslice().str();
-          http_send_static_answer(std::move(res), std::move(promise));
+          http_send_static_answer(std::move(res), std::move(promise), "application/json");
         });
   } else {
     auto request = cocoon::create_serialize_tl_object<cocoon_api::client_getWorkerTypesV2>();
@@ -130,11 +129,10 @@ void ClientRunner::run_get_models_request(
             jb.stop_object();
           }
           jb.stop_array();
-          jb.add_element("object", "list");
           jb.stop_object();
 
           auto res = jb.as_cslice().str();
-          http_send_static_answer(std::move(res), std::move(promise));
+          http_send_static_answer(std::move(res), std::move(promise), "application/json");
         });
   }
 }
@@ -370,9 +368,15 @@ void ClientRunner::receive_http_request(
     std::unique_ptr<ton::http::HttpRequest> request, std::shared_ptr<ton::http::HttpPayload> payload,
     td::Promise<std::pair<std::unique_ptr<ton::http::HttpResponse>, std::shared_ptr<ton::http::HttpPayload>>> promise) {
   if (request->method() == "OPTIONS") {
-    // TODO: return 204
-    std::string data = "<http><body>OK</body></http>";
-    http_send_static_answer(std::move(data), std::move(promise));
+    auto response = ton::http::HttpResponse::create("HTTP/1.0", 204, "No Content", false, false).move_as_ok();
+    response->add_header(ton::http::HttpHeader{"Access-Control-Allow-Origin", "*"});
+    response->add_header(ton::http::HttpHeader{"Access-Control-Allow-Methods", "GET, POST, OPTIONS"});
+    response->add_header(ton::http::HttpHeader{"Access-Control-Allow-Headers", "Content-Type, Authorization"});
+    response->add_header(ton::http::HttpHeader{"Content-Length", "0"});
+    response->complete_parse_header();
+    auto P = response->create_empty_payload().move_as_ok();
+    P->complete_parse();
+    promise.set_value(std::make_pair(std::move(response), std::move(P)));
     return;
   }
   if (request->url() == "/v1/models") {
@@ -655,7 +659,7 @@ std::string ClientRunner::http_generate_json_stats() {
     }
     jb.add_element("enabled", true);
     jb.add_element("git_commit", GitMetadata::CommitSHA1());
-    jb.add_element("git_commit_data", GitMetadata::CommitDate());
+    jb.add_element("git_commit_date", GitMetadata::CommitDate());
     jb.stop_object();
   }
   {
@@ -707,6 +711,51 @@ std::string ClientRunner::http_generate_json_stats() {
       jb.stop_object();
     }
     jb.stop_array();
+  }
+
+  /* health */
+  {
+    jb.start_object("health");
+
+    bool wallet_ok = cocoon_wallet() && cocoon_wallet()->balance() >= min_wallet_balance();
+    bool ton_synced = runner_config() != nullptr;
+    bool has_ready_proxy = false;
+    bool any_proxy_needs_top_up = false;
+    bool all_proxies_have_tokens = true;
+
+    for (auto &it : proxies_) {
+      auto &p = *it.second;
+      if (p.exp_sc_is_inited() && !p.exp_sc_is_closed()) {
+        has_ready_proxy = true;
+        if (p.need_ton_top_up()) {
+          any_proxy_needs_top_up = true;
+        }
+        if (p.exp_available_tokens() <= 0) {
+          all_proxies_have_tokens = false;
+        }
+      }
+    }
+
+    bool healthy = wallet_ok && ton_synced && has_ready_proxy && all_proxies_have_tokens;
+    jb.add_element("healthy", healthy);
+    jb.add_element("wallet_ok", wallet_ok);
+    jb.add_element("wallet_min_balance", min_wallet_balance());
+    jb.add_element("ton_synced", ton_synced);
+    jb.add_element("has_ready_proxy", has_ready_proxy);
+    jb.add_element("any_proxy_needs_top_up", any_proxy_needs_top_up);
+    jb.add_element("all_proxies_have_tokens", all_proxies_have_tokens);
+
+    if (runner_config() && runner_config()->root_contract_config) {
+      auto rc = runner_config()->root_contract_config;
+      jb.start_object("network");
+      jb.add_element("price_per_token", rc->price_per_token());
+      jb.add_element("min_client_stake", rc->min_client_stake());
+      jb.add_element("min_proxy_stake", rc->min_proxy_stake());
+      jb.add_element("worker_fee_per_token", rc->worker_fee_per_token());
+      jb.stop_object();
+    }
+
+    jb.stop_object();
   }
 
   jb.stop_object();

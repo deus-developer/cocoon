@@ -631,6 +631,9 @@ def run_qemu(cfg: Config):
     if cfg.print_only:
         return
 
+    if not shutil.which(qemu[0]):
+        sys.exit(f'ERROR: {qemu[0]} not found. Install QEMU: https://www.qemu.org/download/')
+
     os.execvp(qemu[0], qemu)
 
 

@@ -20,6 +20,8 @@ class FwdProxy final : public td::actor::Actor {
     // Proof of work
     td::int32 max_pow_difficulty{28};  // Max PoW difficulty client will solve
 
+    std::string listen_address_{"127.0.0.1"};
+
     // For forward proxy (skip_socks5=true)
     td::IPAddress fixed_destination_;
 

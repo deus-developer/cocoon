@@ -4,11 +4,20 @@ set -euo pipefail
 readonly DATA_DIR="/data"
 readonly CLIENT_CONFIG="${DATA_DIR}/client-config.json"
 readonly TON_CONFIG="${DATA_DIR}/ton-config.json"
-readonly TON_CONFIG_URL="https://cocoon.org/resources/mainnet.cocoon.global.config.json"
+readonly TON_CONFIG_URL="${COCOON_TON_CONFIG_URL:-https://cocoon.org/resources/mainnet.cocoon.global.config.json}"
 
-readonly ROOT_CONTRACT_ADDRESS="EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k"
-readonly ROUTER_PORT=8116
-readonly HTTP_PORT=10000
+readonly ROOT_CONTRACT_ADDRESS="${COCOON_ROOT_CONTRACT_ADDRESS:-EQCns7bYSp0igFvS1wpb5wsZjCKCV19MD5AVzI4EyxsnU73k}"
+readonly ROUTER_HOST="${COCOON_ROUTER_HOST:-10.100.0.10}"
+readonly ROUTER_PORT="${COCOON_ROUTER_PORT:-8116}"
+readonly HTTP_PORT="${COCOON_HTTP_PORT:-10000}"
+readonly VERBOSITY="${COCOON_VERBOSITY:-3}"
+readonly PROXY_CONNECTIONS="${COCOON_PROXY_CONNECTIONS:-1}"
+readonly CHECK_PROXY_HASHES="${COCOON_CHECK_PROXY_HASHES:-0}"
+readonly ACCESS_HASH="${COCOON_HTTP_ACCESS_HASH:-}"
+readonly IS_TESTNET="${COCOON_IS_TESTNET:-false}"
+readonly MAX_COEFFICIENT="${COCOON_MAX_COEFFICIENT:-0}"
+readonly MAX_TOKENS="${COCOON_MAX_TOKENS:-0}"
+readonly SECRET_STRING="${COCOON_SECRET_STRING:-}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 die() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*" >&2; exit 1; }
@@ -23,7 +32,7 @@ read_secret() {
 }
 
 download_ton_config() {
-    log "Downloading TON config..."
+    log "Downloading TON config from ${TON_CONFIG_URL}..."
     local retries=3
     for ((i=1; i<=retries; i++)); do
         if curl -sf --connect-timeout 10 -o "${TON_CONFIG}" "${TON_CONFIG_URL}"; then
@@ -39,7 +48,6 @@ download_ton_config() {
 generate_config() {
     local wallet_key
     wallet_key=$(read_secret "COCOON_NODE_WALLET_KEY")
-    local access_hash="${COCOON_HTTP_ACCESS_HASH:-}"
 
     [[ -z "${COCOON_OWNER_ADDRESS:-}" ]] && die "COCOON_OWNER_ADDRESS is required"
     [[ -z "$wallet_key" ]] && die "COCOON_NODE_WALLET_KEY is required"
@@ -47,59 +55,37 @@ generate_config() {
     cat > "${CLIENT_CONFIG}" <<EOF
 {
   "is_test": 0,
-  "is_testnet": false,
+  "is_testnet": ${IS_TESTNET},
   "http_port": ${HTTP_PORT},
-  "proxy_connections": ${COCOON_PROXY_CONNECTIONS:-1},
+  "proxy_connections": ${PROXY_CONNECTIONS},
   "ton_config_filename": "${TON_CONFIG}",
   "owner_address": "${COCOON_OWNER_ADDRESS}",
   "root_contract_address": "${ROOT_CONTRACT_ADDRESS}",
   "node_wallet_key": "${wallet_key}",
-  "connect_to_proxy_via": "127.0.0.1:${ROUTER_PORT}",
-  "check_proxy_hashes": 0,
-  "max_coefficient": 0,
-  "max_tokens": 0,
-  "http_access_hash": "${access_hash}"
+  "connect_to_proxy_via": "${ROUTER_HOST}:${ROUTER_PORT}",
+  "check_proxy_hashes": ${CHECK_PROXY_HASHES},
+  "max_coefficient": ${MAX_COEFFICIENT},
+  "max_tokens": ${MAX_TOKENS},
+  "secret_string": "${SECRET_STRING}",
+  "http_access_hash": "${ACCESS_HASH}"
 }
 EOF
-    log "Client config generated"
+    log "Client config generated (router: ${ROUTER_HOST}:${ROUTER_PORT})"
 }
-
-ROUTER_PID=""
-CLIENT_PID=""
-
-cleanup() {
-    trap - SIGTERM SIGINT  # Disable trap to prevent re-entry
-    log "Shutting down..."
-    [[ -n "$CLIENT_PID" ]] && kill "$CLIENT_PID" 2>/dev/null
-    [[ -n "$ROUTER_PID" ]] && kill "$ROUTER_PID" 2>/dev/null
-    wait
-    exit 0
-}
-
-trap cleanup SIGTERM SIGINT
 
 main() {
-    log "COCOON starting..."
+    log "COCOON Client starting..."
     log "  Owner: ${COCOON_OWNER_ADDRESS:-<not set>}"
-    log "  Verbosity: ${COCOON_VERBOSITY:-3}"
-    log "  Proxy connections: ${COCOON_PROXY_CONNECTIONS:-1}"
-    log "  Access hash: ${COCOON_HTTP_ACCESS_HASH:+<configured>}${COCOON_HTTP_ACCESS_HASH:-<not set>}"
+    log "  Router: ${ROUTER_HOST}:${ROUTER_PORT}"
+    log "  Verbosity: ${VERBOSITY}"
+    log "  Proxy connections: ${PROXY_CONNECTIONS}"
+    log "  Testnet: ${IS_TESTNET}"
 
     download_ton_config
     generate_config
 
-    log "Starting router on port ${ROUTER_PORT}..."
-    router -S "${ROUTER_PORT}@any" --serialize-info -v "${COCOON_VERBOSITY:-3}" &
-    ROUTER_PID=$!
-    sleep 1
-    log "Router started (PID: $ROUTER_PID)"
-
     log "Starting client..."
-    client-runner -c "${CLIENT_CONFIG}" -v "${COCOON_VERBOSITY:-3}" &
-    CLIENT_PID=$!
-    log "Client started (PID: $CLIENT_PID)"
-
-    wait "$CLIENT_PID"
+    exec client-runner -c "${CLIENT_CONFIG}" -v "${VERBOSITY}"
 }
 
 main

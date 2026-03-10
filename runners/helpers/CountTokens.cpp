@@ -2,6 +2,7 @@
 #include "Ton.h"
 #include "td/utils/StringBuilder.h"
 #include "td/utils/buffer.h"
+#include "td/utils/logging.h"
 #include "tl/TlObject.h"
 #include <memory>
 #include <sstream>
@@ -41,76 +42,127 @@ class ByteTokenCounter : public TokenCounter {
     return ptr->get<td::int64>();
   }
 
+  void process_usage(nlohmann::json &v, bool &updated) {
+    {
+      auto val = get_json_value(v, {"usage", "prompt_tokens"});
+      if (val > prompt_tokens_) {
+        prompt_tokens_ = val;
+        updated = true;
+      }
+    }
+    {
+      auto val = get_json_value(v, {"usage", "prompt_tokens_details", "cached_tokens"});
+      if (val > cached_tokens_) {
+        cached_tokens_ = val;
+        updated = true;
+      }
+    }
+    {
+      auto val = get_json_value(v, {"usage", "completion_tokens"});
+      if (val > completion_tokens_) {
+        completion_tokens_ = val;
+        updated = true;
+      }
+    }
+    {
+      auto val = get_json_value(v, {"usage", "completion_tokens_details", "reasoning_tokens"});
+      if (val > reasoning_tokens_) {
+        reasoning_tokens_ = val;
+        updated = true;
+      }
+    }
+    {
+      auto val = get_json_value(v, {"usage", "reasoning_tokens"});
+      if (val > reasoning_tokens_) {
+        reasoning_tokens_ = val;
+        updated = true;
+      }
+    }
+  }
+
+  void inject_cost(nlohmann::json &v) {
+    auto prompt_tokens_adj = adjust_tokens(prompt_tokens_ - cached_tokens_, coef_, prompt_tokens_mult_);
+    auto cached_tokens_adj = adjust_tokens(cached_tokens_, coef_, cached_tokens_mult_);
+    auto completion_tokens_adj =
+        adjust_tokens(completion_tokens_ - reasoning_tokens_, coef_, completion_tokens_mult_);
+    auto reasoning_tokens_adj = adjust_tokens(reasoning_tokens_, coef_, reasoning_tokens_mult_);
+
+    v["usage"]["prompt_total_cost"] = (prompt_tokens_adj + cached_tokens_adj) * price_per_token_;
+    v["usage"]["completion_total_cost"] = (completion_tokens_adj + reasoning_tokens_adj) * price_per_token_;
+    v["usage"]["total_cost"] =
+        (prompt_tokens_adj + cached_tokens_adj + completion_tokens_adj + reasoning_tokens_adj) * price_per_token_;
+  }
+
+  std::string process_json_line(const std::string &json_str) {
+    try {
+      auto v = nlohmann::json::parse(json_str);
+      bool updated = false;
+      process_usage(v, updated);
+
+      if (!updated && v.contains("usage") && v["usage"].is_null()) {
+        LOG(WARNING) << "token counter: usage is null in response chunk "
+                     << "(vLLM may not support stream_options.include_usage)";
+      }
+
+      if (updated) {
+        inject_cost(v);
+      }
+      return v.dump();
+    } catch (...) {
+      return json_str;
+    }
+  }
+
   std::string add_next_answer_slice(td::Slice event) override {
     last_ += event.str();
 
     td::StringBuilder sb;
-    std::stringstream ss(last_);
-    size_t pos = 0;
-    bool is_end = false;
-    while (!is_end) {
-      try {
-        nlohmann::json v;
-        ss >> v;
-        pos = ss.tellg();
+    size_t processed_to = 0;
 
-        bool updated = false;
+    size_t search_from = 0;
+    while (true) {
+      auto nl = last_.find('\n', search_from);
+      if (nl == std::string::npos) {
+        break;
+      }
 
-        {
-          auto val = get_json_value(v, {"usage", "prompt_tokens"});
-          if (val > prompt_tokens_) {
-            prompt_tokens_ = val;
-            updated = true;
-          }
-        }
-        {
-          auto val = get_json_value(v, {"usage", "prompt_tokens_details", "cached_tokens"});
-          if (val > cached_tokens_) {
-            cached_tokens_ = val;
-            updated = true;
-          }
-        }
-        {
-          auto val = get_json_value(v, {"usage", "completion_tokens"});
-          if (val > completion_tokens_) {
-            completion_tokens_ = val;
-            updated = true;
-          }
-        }
-        {
-          auto val = get_json_value(v, {"usage", "completion_tokens_details", "reasoning_tokens"});
-          if (val > reasoning_tokens_) {
-            reasoning_tokens_ = val;
-            updated = true;
-          }
-        }
-        {
-          auto val = get_json_value(v, {"usage", "reasoning_tokens"});
-          if (val > reasoning_tokens_) {
-            reasoning_tokens_ = val;
-            updated = true;
-          }
-        }
+      auto line = last_.substr(search_from, nl - search_from);
+      if (!line.empty() && line.back() == '\r') {
+        line.pop_back();
+      }
+      processed_to = nl + 1;
+      search_from = nl + 1;
 
-        if (updated) {
-          auto prompt_tokens_adj = adjust_tokens(prompt_tokens_ - cached_tokens_, coef_, prompt_tokens_mult_);
-          auto cached_tokens_adj = adjust_tokens(cached_tokens_, coef_, cached_tokens_mult_);
-          auto completion_tokens_adj =
-              adjust_tokens(completion_tokens_ - reasoning_tokens_, coef_, completion_tokens_mult_);
-          auto reasoning_tokens_adj = adjust_tokens(reasoning_tokens_, coef_, reasoning_tokens_mult_);
+      if (line.empty()) {
+        sb << "\n";
+        continue;
+      }
 
-          v["usage"]["prompt_total_cost"] = (prompt_tokens_adj + cached_tokens_adj) * price_per_token_;
-          v["usage"]["completion_total_cost"] = (completion_tokens_adj + reasoning_tokens_adj) * price_per_token_;
-          v["usage"]["total_cost"] =
-              (prompt_tokens_adj + cached_tokens_adj + completion_tokens_adj + reasoning_tokens_adj) * price_per_token_;
+      static const std::string data_prefix = "data: ";
+      if (line.size() > data_prefix.size() && line.compare(0, data_prefix.size(), data_prefix) == 0) {
+        auto payload = line.substr(data_prefix.size());
+        if (payload == "[DONE]") {
+          sb << line << "\n";
+        } else {
+          auto result = process_json_line(payload);
+          sb << "data: " << result << "\n";
         }
-
-        sb << v.dump() << "\n";
-      } catch (...) {
-        is_end = true;
+      } else {
+        try {
+          auto v = nlohmann::json::parse(line);
+          bool updated = false;
+          process_usage(v, updated);
+          if (updated) {
+            inject_cost(v);
+          }
+          sb << v.dump() << "\n";
+        } catch (...) {
+          sb << line << "\n";
+        }
       }
     }
-    last_ = last_.substr(pos);
+
+    last_ = last_.substr(processed_to);
     return sb.as_cslice().str();
   }
   std::string finalize() override {
